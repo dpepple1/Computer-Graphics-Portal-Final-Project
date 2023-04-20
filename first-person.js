@@ -7,197 +7,296 @@
 /* Libraries */
 import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
-import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Octree } from 'three/addons/math/Octree.js';
+import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
+import { Capsule } from 'three/addons/math/Capsule.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-/* Variables */
-// Note: Using 'let' for strict type-checking
-let container, stats; // holds data
-let camera, controller; // camera
-let scene, renderer;  // rendered scene
-let axes, geometry1, cube1, material1, geometry2, cube2, material2;   // testing cube
+////////////////////////////////////////////
+import * as Geometry from './geometry.js';
+import { degreesToRadians } from './common.js';
+////////////////////////////////////////////
 
-/* Constant World Values */
+/* CLOCK */
 const clock = new THREE.Clock();
 
-/* Global Parameters (for easy access) */
-let sceneColor = 0x888800;
+/* SCENE */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x88ccee);
+scene.fog = new THREE.Fog(0x88ccee, 0, 50);
 
-/********************************************************************/
-/* First-Person Camera Parameters */
-let activeMouseStats = {
-    currentLeftButton: false,
-    currentRightButton: false,
-    mouseX: 0,
-    mouseY: 0
-}; 
-let previousEvent = null;
-let allKeys = {};
-let previousKeys = {};
-let fpcamera, input, rotation, translation, phi, theta;
+/* CONTAINER */
+const container = document.getElementById('container');
 
-document.addEventListener("mousedown", (e) => onMouseDown(e), false);
-document.addEventListener("mouseup", (e) => onMouseUp(e), false);
-document.addEventListener("mousemove", (e) => onMouseMove(e), false);
-document.addEventListener("keydown", (e) => onKeyDown(e), false);
-document.addEventListener("keyup", (e) => onKeyUp(e), false);
+/* CAMERA */
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.rotation.order = 'YXZ';
 
-/********************************************************************/
-initialize();
+/* LIGHTING */
+const fillLight1 = new THREE.HemisphereLight(0x4488bb, 0x002244, 0.5);
+fillLight1.position.set(2, 1, 1);
+scene.add(fillLight1);
+
+/* SHADOWS */
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(- 5, 25, - 1);
+directionalLight.castShadow = true;
+directionalLight.shadow.camera.near = 0.01;
+directionalLight.shadow.camera.far = 500;
+directionalLight.shadow.camera.right = 30;
+directionalLight.shadow.camera.left = - 30;
+directionalLight.shadow.camera.top = 30;
+directionalLight.shadow.camera.bottom = - 30;
+directionalLight.shadow.mapSize.width = 1024;
+directionalLight.shadow.mapSize.height = 1024;
+directionalLight.shadow.radius = 4;
+directionalLight.shadow.bias = - 0.00006;
+scene.add(directionalLight);
+
+/* RENDER */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+container.appendChild(renderer.domElement);
+ 
+/* STATS */
+const stats = new Stats();
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.top = '0px';
+container.appendChild(stats.domElement);
+
+/* CONSTANTS */
+const STEPS_PER_FRAME = 5;
+const GRAVITY = 0;
+
+////////////////////////////////////////////////////////////
+const floor = Geometry.Box(40, 1, 40, 0xffffff);
+const box = Geometry.Box(4, 4, 4, 0xff6347);
+const longBox = Geometry.Box(2, 4, 18, 0x40ab00);
+const sphere = Geometry.Sphere(3, 0xaa00bb);
+const tetrahedron = Geometry.Tetrahedron(4, 0x3363ff);
+const redPortalFrame = Geometry.PortalFrame(0xff0000);
+const bluePortalFrame = Geometry.PortalFrame(0x0000ff);
+const pointLight = new THREE.PointLight(0xffffff);
+const ambientLight = new THREE.AmbientLight(0x777777);
+
+function setupScene() {
+	// Objects
+	scene.add(floor);
+	floor.position.set(0, -0.5, 0);
+
+	scene.add(box);
+	box.position.set(5, 2, 9);
+
+	scene.add(longBox);
+	longBox.position.set(6, 2, -12);
+	longBox.rotation.y = degreesToRadians(60);
+
+
+	scene.add(sphere);
+	sphere.position.set(4, 3, -2);
+	sphere.rotation.y = degreesToRadians(30);
+
+	scene.add(tetrahedron);
+	tetrahedron.rotation.y = degreesToRadians(-45);
+	tetrahedron.rotation.x = degreesToRadians(55);
+	tetrahedron.position.set(-8, Math.sqrt(2), 3);
+
+	scene.add(redPortalFrame, bluePortalFrame);
+	redPortalFrame.position.set(-8, 0, -4);
+	redPortalFrame.rotateY(degreesToRadians(-45));
+	bluePortalFrame.position.set(10, 0, 4);
+
+	// Light
+	pointLight.position.set(10, 20, 10);
+
+	scene.add(pointLight, ambientLight);
+}
+
+function helpers() {
+	// Helpers
+	const lightHelper = new THREE.PointLightHelper(pointLight);
+	const gridHelper = new THREE.GridHelper(200, 50);
+	scene.add(lightHelper, gridHelper);
+}
+
+setupScene();
+////////////////////////////////////////////////////////////
+
+/* PLAYER */
+let worldOctree = new Octree();
+
+// worldOctree.add(floor, {useVertices: true });
+
+const playerCollider = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1, 0), 0.35);
+
+const playerVelocity = new THREE.Vector3();
+const playerDirection = new THREE.Vector3();
+
+let playerOnFloor = false;
+let mouseTime = 0;
+
+const keyStates = {};
+
+const vector1 = new THREE.Vector3();
+const vector2 = new THREE.Vector3();
+const vector3 = new THREE.Vector3();
+
+/* EVENTS LISTENERS */
+document.addEventListener('keydown', (event) => {
+	keyStates[event.code] = true;
+});
+
+document.addEventListener('keyup', (event) => {
+	keyStates[event.code] = false;
+});
+
+container.addEventListener('mousedown', () => {
+	document.body.requestPointerLock();
+	mouseTime = performance.now();
+});
+
+/*
+document.addEventListener('mouseup', () => {
+	if (document.pointerLockElement !== null) throwBall();
+});
+*/
+
+document.body.addEventListener('mousemove', (event) => {
+	if (document.pointerLockElement === document.body) {
+		camera.rotation.y -= event.movementX / 500;
+		camera.rotation.x -= event.movementY / 500;
+
+	}
+});
+
+/* WINDOW RESIZE */ 
+window.addEventListener('resize', onWindowResize);
+function onWindowResize() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* PLAYER COLLISION */
+function playerCollisions() {
+	const result = worldOctree.capsuleIntersect(playerCollider);
+	playerOnFloor = false;
+	if (result) {
+		playerOnFloor = result.normal.y > 0;
+		if (!playerOnFloor) {
+			playerVelocity.addScaledVector(result.normal, - result.normal.dot(playerVelocity));
+		}
+		playerCollider.translate(result.normal.multiplyScalar(result.depth));
+	}
+}
+
+/* PLAYER UPDATE */
+function updatePlayer(deltaTime) {
+	let damping = Math.exp(- 4 * deltaTime) - 1;
+	if (!playerOnFloor) {
+		playerVelocity.y -= GRAVITY * deltaTime;
+		damping *= 0.1; // Air Resistance
+	}
+	playerVelocity.addScaledVector(playerVelocity, damping);
+	const deltaPosition = playerVelocity.clone().multiplyScalar(deltaTime);
+	playerCollider.translate(deltaPosition);
+	playerCollisions();
+	camera.position.copy(playerCollider.end);
+}
+
+/* FORWARD */
+function getForwardVector() {
+	camera.getWorldDirection(playerDirection);
+	playerDirection.y = 0;
+	playerDirection.normalize();
+	return playerDirection;
+}
+/* SIDE TO SIDE */
+function getSideVector() {
+	camera.getWorldDirection(playerDirection);
+	playerDirection.y = 0;
+	playerDirection.normalize();
+	playerDirection.cross(camera.up);
+	return playerDirection;
+}
+
+/* CONTROLS */
+function controls(deltaTime) {
+	// gives a bit of air control
+	const speedDelta = deltaTime * (playerOnFloor ? 25 : 8);
+	if (keyStates['KeyW']) {
+		playerVelocity.add(getForwardVector().multiplyScalar(speedDelta));
+	}
+	if (keyStates['KeyS']) {
+		playerVelocity.add(getForwardVector().multiplyScalar(- speedDelta));
+	}
+	if (keyStates['KeyA']) {
+		playerVelocity.add(getSideVector().multiplyScalar(- speedDelta));
+	}
+	if (keyStates['KeyD']) {
+		playerVelocity.add(getSideVector().multiplyScalar(speedDelta));
+	}
+	if (playerOnFloor) {
+		if (keyStates['Space']) {
+			playerVelocity.y = 15;
+		}
+	}
+}
+
+/*
+const loader = new GLTFLoader().setPath('./models/gltf/');
+
+loader.load('collision-world.glb', (gltf) => {
+	scene.add(gltf.scene);
+	worldOctree.fromGraphNode(gltf.scene);
+	gltf.scene.traverse(child => {
+		if (child.isMesh) {
+			child.castShadow = true;
+			child.receiveShadow = true;
+			if (child.material.map) {
+				child.material.map.anisotropy = 4;
+			}
+		}
+	});
+	const helper = new OctreeHelper(worldOctree);
+	helper.visible = false;
+	scene.add(helper);
+	const gui = new GUI({ width: 200 });
+	gui.add({ debug: false }, 'debug')
+		.onChange(function (value) {
+			helper.visible = value;
+		});
+	animate();
+});
+*/
+
 animate();
 
-function initialize() {
-    // Container holding canvas
-    container = document.getElementById("container");
-
-    // Camera activation
-    init_camera();
-
-    // Scene creation
-    init_scene(); 
-
-    // Renderer activation
-    init_renderer();
-
-    // Controller
-    init_controller();
-
-    // Stats (optional)
-    init_stats();
-
-    // Create initial scene
-    init_geometry();
+function teleportPlayerIfOob() {
+	if (camera.position.y <= - 25) {
+		playerCollider.start.set(0, 0.35, 0);
+		playerCollider.end.set(0, 1, 0);
+		playerCollider.radius = 0.35;
+		camera.position.copy(playerCollider.end);
+		camera.rotation.set(0, 0, 0);
+	}
 }
 
-function init_scene() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(sceneColor);
-}
-function init_geometry() {
-    axes = new THREE.AxesHelper(10)
-
-    geometry1 = new THREE.BoxGeometry(100, 1, 100, 10, 10, 10);
-    material1 = new THREE.MeshBasicMaterial({ color: 0xdddddd });
-    cube1 = new THREE.Mesh(geometry1, material1);
-    cube1.translateY(-1);
-
-    geometry2 = new THREE.BoxGeometry(5,5,5)
-    material2 = new THREE.MeshBasicMaterial({ color: 0x22ee11})
-    cube2 = new THREE.Mesh(geometry2, material2);
-
-    scene.add(axes);
-    scene.add(cube1);
-    scene.add(cube2);
-}
-
-function init_stats() {
-    stats = new Stats();
-    container.appendChild(stats.dom);
-}
-
-/* Establishes Renderer */
-function init_renderer() {
-    renderer = new THREE.WebGLRenderer();
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    container.appendChild(renderer.domElement);
-}
-
-/* Establishes Controllable Camera Object */
-function init_camera() {
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set(10,10,10);
-    camera.lookAt(0,0,0)
-}
-
-/* Creates Camera */
-function init_controller() {
-    controller = new FirstPersonControls(camera, renderer.domElement);
-    controller.lookSpeed = 0.8;
-    controller.movementSpeed = 5;
-}
-
-/********************************************************************/
-/* FIRST PERSON OPTIONS */
-function makeFirstPersonCamera(camera) {
-    fpcamera = camera;
-    input = new InputController();
-    rotation = new THREE.Quarternion();
-    translation = new THREE.Vector3();
-    phi = 0;
-    theta = 0;
-}
-
-function updateTime(elapsedTime) {
-    updateRotation(elapsedTime)
-}
-function updateRotation(elapsedTime) {
-    const xh = input.activeMouseStats.mouseXDelta / window.innerWidth;
-    const yh = input.activeMouseStats.mouseYDelta / window.innerHeight;
-}
-function onMouseDown(e) {
-    switch (e.button) {
-        case 0: {
-            activeMouseStats.currentLeftButton = true;
-            break;
-        }
-        case 2: {
-            activeMouseStats.currentRightButton = true;
-            break;
-        }
-    }
-}
-
-function onMouseUp(e) {
-    switch (e.button) {
-        case 0: {
-            activeMouseStats.curentLeftButton = false;
-            break;
-        }
-        case 2: {
-            activeMouseStats.currentRightButton = false;
-            break;
-        }
-    }
-}
-
-function onMouseMove(e) {
-    activeMouseStats.mouseX = e.pageX - window.innerWidth / 2;
-    activeMouseStats.mouseY = e.pageY - window.innerHeight / 2;
-
-    if (previousEvent == null) {
-        previousEvent = {...activeMouseStats}
-    }
-}
-
-function onKeyDown(e) {
-    allKeys[e.keyCode] = true;
-}
-
-function onKeyUp(e) {
-    allKeys[e.keyCode] = false;
-}
-
-function update() {
-    // Do nothing for now
-}
-
-/********************************************************************/
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    controller.handleResize();
-}
-
+/* ANIMATE */
 function animate() {
-	requestAnimationFrame( animate );
-    render();
-    stats.update();
-}
-
-function render() {
-    controller.update( clock.getDelta() );
-   
+    const deltaTime = Math.min(0.05, clock.getDelta()) / STEPS_PER_FRAME;
+	for (let i = 0; i < STEPS_PER_FRAME; i++) {
+		controls(deltaTime);
+		updatePlayer(deltaTime);
+		teleportPlayerIfOob();
+	}
     renderer.render(scene, camera);
+    stats.update();
+    requestAnimationFrame(animate);
 }
