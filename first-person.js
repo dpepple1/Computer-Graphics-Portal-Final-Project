@@ -72,7 +72,7 @@ container.appendChild(stats.domElement);
 
 /* CONSTANTS */
 const STEPS_PER_FRAME = 5;
-const GRAVITY = 0;
+const GRAVITY = 30;
 
 ////////////////////////////////////////////////////////////
 const floor = Geometry.Box(40, 1, 40, 0xffffff);
@@ -131,7 +131,6 @@ setupScene();
 /* PLAYER */
 let worldOctree = new Octree();
 
-// worldOctree.add(floor, {useVertices: true });
 
 const playerCollider = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1, 0), 0.35);
 
@@ -249,8 +248,18 @@ function controls(deltaTime) {
 	}
 }
 
+
+const loader = new GLTFLoader();
+worldOctree.fromGraphNode(floor);
+worldOctree.fromGraphNode(longBox);
+worldOctree.fromGraphNode(sphere);
+worldOctree.fromGraphNode(redPortalFrame);
+worldOctree.fromGraphNode(bluePortalFrame);
+worldOctree.fromGraphNode(tetrahedron);
+worldOctree.fromGraphNode(box);
+
 /*
-const loader = new GLTFLoader().setPath('./models/gltf/');
+const loader = new GLTFLoader().setPath('./');
 
 loader.load('collision-world.glb', (gltf) => {
 	scene.add(gltf.scene);
@@ -276,6 +285,7 @@ loader.load('collision-world.glb', (gltf) => {
 });
 */
 
+
 animate();
 
 function teleportPlayerIfOob() {
@@ -296,6 +306,9 @@ function animate() {
 		updatePlayer(deltaTime);
 		teleportPlayerIfOob();
 	}
+
+	// reset the opacity at the beginning of the loop
+
     renderer.render(scene, camera);
     stats.update();
     requestAnimationFrame(animate);
