@@ -30,9 +30,9 @@ export function PortalFrame(color) {
   const geometry2 = new THREE.BoxGeometry(7, 1, 1);
   const geometry3 = new THREE.BoxGeometry(1, 12, 1);
 
-  geometry1.translate(4, 6, 0);
-  geometry2.translate(0, 11.5, 0);
-  geometry3.translate(-4, 6, 0);
+  geometry1.translate(4, 0.5, 0);
+  geometry2.translate(0, 6, 0);
+  geometry3.translate(-4, 0.5, 0);
 
 
   const mergedGeometry = BufferGeometryUtils.mergeGeometries([geometry1, geometry2, geometry3]);
