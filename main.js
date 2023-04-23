@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 import * as Geometry from './geometry';
 import { degreesToRadians } from './common';
+import * as Colors from './Colors'
 
 const scene = new THREE.Scene();
 
@@ -61,23 +62,56 @@ bluePortal.rotation.z = bluePortalFrame.rotation.z
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
+redPortalCameraHelper.setColors( Colors.red,  Colors.white,  Colors.white,  Colors.pink,  Colors.white );
 
 const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
+bluePortalCameraHelper.setColors( Colors.blue,  Colors.white,  Colors.white,  Colors.skyblue,  Colors.white );
+
 
 const cameraHelper = new THREE.CameraHelper( camera );
 
 scene.add( cameraHelper );
 scene.add( redPortalCameraHelper );
-// scene.add( bluePortalCameraHelper );
+scene.add( bluePortalCameraHelper );
 
+// ----------------------------
+
+const camera1 = camera;
+const portal1 = redPortal;
+const camera2 = bluePortalCamera;
+const portal2 = bluePortal;
+
+const camera1Normal = new THREE.Vector3( 0, 0, -1 );
+camera1Normal.applyQuaternion(camera1.quaternion);
+camera1Normal.normalize();
+
+const portal1Normal = new THREE.Vector3( 0, 0, 1 );
+portal1Normal.applyQuaternion(portal1.quaternion);
+portal1Normal.normalize();
+
+const portal2Normal = new THREE.Vector3( 0, 0, 1 );
+portal2Normal.applyQuaternion(portal2.quaternion);
+portal2Normal.normalize();
+
+const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
+
+const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(portal2.quaternion)
+camera2Portal2NormalSum.x = -camera2Portal2NormalSum.x;
+camera2Portal2NormalSum.z = -camera2Portal2NormalSum.z;
+
+const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
+
+camera2.lookAt(camera2.position.clone().add(camera2Target));
+
+// ----------------------------
 
 
 function animate() {
   requestAnimationFrame(animate);
 
-  updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
-  // updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
+  // updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
+  updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   controls.update();
   redPortalCameraHelper.update();
@@ -89,13 +123,13 @@ function animate() {
   renderer.setViewport(0, 0, 2 * window.innerWidth / 3, window.innerHeight);
   renderer.render(scene, camera);
 
-  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  renderer.render(scene, redPortalCamera);
+  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  // renderer.render(scene, redPortalCamera);
   
-  // renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
-  // renderer.render(scene, bluePortalCamera);
-
   renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
+  renderer.render(scene, bluePortalCamera);
+
+  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
   renderer.render(scene, topViewCamera);
 }
 
@@ -113,7 +147,7 @@ function init() {
 
 function setupScene() {
   // Objects
-  scene.add(floor);
+  // scene.add(floor);
   floor.position.set(0, -0.5, 0);
 
   scene.add(box);
@@ -152,66 +186,37 @@ function helpers() {
   scene.add(lightHelper, gridHelper);
 }
 
-// function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
-//   const portal2matrix = new THREE.Matrix4();
-//   const portal1matrix = new THREE.Matrix4();
-//   const camera1matrix = new THREE.Matrix4();
-//   portal2matrix.copy(portal2.matrixWorld);
-//   portal1matrix.copy(portal1.matrixWorld);
-//   camera1matrix.copy(camera1.matrixWorld);
-//   const matrix = portal2matrix.multiply( portal1matrix.multiply(camera1matrix) );
-
-//   // const matrix = portal2.matrixWorld.multiply( portal1.matrixWorld.multiply(camera1.matrixWorld) );
-//   camera2.position.setFromMatrixPosition(matrix);
-//   camera2.quaternion.setFromRotationMatrix(matrix);
-// }
-
-function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
+function updateRelativePositionAndRotation(camera1, portal1, camera2, portal2) {
+  // Update Relative Position
   const camera1Position = new THREE.Vector3();
   camera1Position.copy(camera1.position);
   const camera1PositionRelativeToPortal1 = portal1.worldToLocal(camera1Position);
-  // console.log(camera1PositionRelativeToPortal1);
   camera2.position.copy( portal2.localToWorld(camera1PositionRelativeToPortal1) );
 
-  // console.log(portal1.rotation);
+  // // Update Relative Position
+  // camera2.rotation.x = camera1.rotation.x;
+  // camera2.rotation.y = camera1.rotation.y;
+  // camera2.rotation.z = camera1.rotation.z;
 
-  const camera1RotationRelativeToPortal1 = getLocalEuler(camera1, portal1);
-  camera2.rotation.copy( getGlobalEuler(portal2, camera1RotationRelativeToPortal1));
-  // console.log(camera2.rotation);
-}
+  // const camera1Normal = new THREE.Vector3( 0, 0, -1 );
+  // camera1Normal.applyQuaternion(camera1.quaternion);
+  // camera1Normal.normalize();
 
-function getLocalEuler(object1, object2) {
-  // Get the world quaternion of object1
-  const object1WorldQuaternion = new THREE.Quaternion();
-  object1.getWorldQuaternion(object1WorldQuaternion);
+  // const portal1Normal = new THREE.Vector3( 0, 0, 1 );
+  // portal1Normal.applyQuaternion(portal1.quaternion);
+  // portal1Normal.normalize();
 
-  // Invert the world quaternion of object1
-  const object1WorldQuaternionInverse = object1WorldQuaternion.clone().invert();
+  // const portal2Normal = new THREE.Vector3( 0, 0, 1 );
+  // portal2Normal.applyQuaternion(portal2.quaternion);
+  // portal2Normal.normalize();
 
-  // Get the local quaternion of object2 in the local space of object1
-  const object2LocalQuaternion = object1WorldQuaternionInverse.multiply(object2.quaternion.clone());
+  // const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
 
-  // Extract Euler angles from the local quaternion
-  const object2LocalEuler = new THREE.Euler().setFromQuaternion(object2LocalQuaternion);
-  return object2LocalEuler;
-}
+  // const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(portal2.quaternion)
+  // camera2Portal2NormalSum.x = -camera2Portal2NormalSum.x;
+  // camera2Portal2NormalSum.z = -camera2Portal2NormalSum.z;
 
-function getGlobalEuler(object1, object2LocalEuler) {
-  // Get the world quaternion of object1
-  const object1WorldQuaternion = new THREE.Quaternion();
-  object1.getWorldQuaternion(object1WorldQuaternion);
+  // const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
 
-  // Convert the local Euler angles to quaternion
-  const object2LocalQuaternion = new THREE.Quaternion().setFromEuler(object2LocalEuler);
-
-  // Multiply the object2's local quaternion with the object1's world quaternion
-  const object2GlobalQuaternion = object1WorldQuaternion.clone().multiply(object2LocalQuaternion);
-
-  // Convert the resulting quaternion to Euler angles
-  const object2GlobalEuler = new THREE.Euler().setFromQuaternion(object2GlobalQuaternion);
-
-  // object2GlobalEuler.order = 'ZYX';
-  console.log(object2GlobalEuler);
-
-  return object2GlobalEuler;
+  // camera2.lookAt(camera2.position.clone().add(camera2Target));
 }
