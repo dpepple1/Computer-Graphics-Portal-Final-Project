@@ -29,17 +29,12 @@ const bluePortalFrame = Geometry.PortalFrame(0x0000ff);
 const pointLight = new THREE.PointLight(0xffffff);
 const ambientLight = new THREE.AmbientLight(0x777777);
 
-// DEVELOPER CAMERA
-const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
-topViewCamera.position.set(0, 50, 0);
-topViewCamera.lookAt(0, 0, 0);
-
 const controls = new OrbitControls(camera, renderer.domElement);
 
 init();
 setupScene();
-helpers();
 
+// Portals
 const redPortalGeometry = new THREE.PlaneGeometry(7, 11);
 const redPortalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 const redPortal = new THREE.Mesh(redPortalGeometry, redPortalMaterial);
@@ -61,56 +56,34 @@ bluePortal.rotation.y = bluePortalFrame.rotation.y
 bluePortal.rotation.z = bluePortalFrame.rotation.z
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
+const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
+
+// Helpers
 const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
 redPortalCameraHelper.setColors( Colors.red,  Colors.white,  Colors.white,  Colors.pink,  Colors.white );
 
-const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
 bluePortalCameraHelper.setColors( Colors.blue,  Colors.white,  Colors.white,  Colors.skyblue,  Colors.white );
 
-
 const cameraHelper = new THREE.CameraHelper( camera );
-
+const lightHelper = new THREE.PointLightHelper(pointLight);
+const gridHelper = new THREE.GridHelper(200, 50);
+scene.add( lightHelper, gridHelper);
 scene.add( cameraHelper );
 scene.add( redPortalCameraHelper );
 scene.add( bluePortalCameraHelper );
 
-// ----------------------------
+// DEVELOPER CAMERA
+const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
+topViewCamera.position.set(0, 50, 0);
+topViewCamera.lookAt(0, 0, 0);
 
-const camera1 = camera;
-const portal1 = redPortal;
-const camera2 = bluePortalCamera;
-const portal2 = bluePortal;
-
-const camera1Normal = new THREE.Vector3( 0, 0, -1 );
-camera1Normal.applyQuaternion(camera1.quaternion);
-camera1Normal.normalize();
-
-const portal1Normal = new THREE.Vector3( 0, 0, 1 );
-portal1Normal.applyQuaternion(portal1.quaternion);
-portal1Normal.normalize();
-
-const portal2Normal = new THREE.Vector3( 0, 0, 1 );
-portal2Normal.applyQuaternion(portal2.quaternion);
-portal2Normal.normalize();
-
-const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
-
-const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(portal2.quaternion)
-camera2Portal2NormalSum.x = -camera2Portal2NormalSum.x;
-camera2Portal2NormalSum.z = -camera2Portal2NormalSum.z;
-
-const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
-
-camera2.lookAt(camera2.position.clone().add(camera2Target));
-
-// ----------------------------
 
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
+  updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   controls.update();
@@ -123,14 +96,14 @@ function animate() {
   renderer.setViewport(0, 0, 2 * window.innerWidth / 3, window.innerHeight);
   renderer.render(scene, camera);
 
-  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  // renderer.render(scene, redPortalCamera);
+  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  renderer.render(scene, redPortalCamera);
   
   renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
   renderer.render(scene, bluePortalCamera);
 
-  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  renderer.render(scene, topViewCamera);
+  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  // renderer.render(scene, topViewCamera);
 }
 
 animate();
@@ -171,19 +144,12 @@ function setupScene() {
   redPortalFrame.position.set(-8, 5.5, -4);
   redPortalFrame.rotateY(degreesToRadians(135));
   bluePortalFrame.position.set(10, 5.5, 4);
-  bluePortalFrame.rotateY(degreesToRadians(180));
+  bluePortalFrame.rotateY(degreesToRadians(210));
 
   // Light
   pointLight.position.set(10, 20, 10);
 
   scene.add(pointLight, ambientLight);
-}
-
-function helpers() {
-  // Helpers
-  const lightHelper = new THREE.PointLightHelper(pointLight);
-  const gridHelper = new THREE.GridHelper(200, 50);
-  scene.add(lightHelper, gridHelper);
 }
 
 function updateRelativePositionAndRotation(camera1, portal1, camera2, portal2) {
@@ -193,30 +159,29 @@ function updateRelativePositionAndRotation(camera1, portal1, camera2, portal2) {
   const camera1PositionRelativeToPortal1 = portal1.worldToLocal(camera1Position);
   camera2.position.copy( portal2.localToWorld(camera1PositionRelativeToPortal1) );
 
-  // // Update Relative Position
-  // camera2.rotation.x = camera1.rotation.x;
-  // camera2.rotation.y = camera1.rotation.y;
-  // camera2.rotation.z = camera1.rotation.z;
+  // Update Relative rotation
+  camera2.rotation.x = camera1.rotation.x;
+  camera2.rotation.y = camera1.rotation.y;
+  camera2.rotation.z = camera1.rotation.z;
 
-  // const camera1Normal = new THREE.Vector3( 0, 0, -1 );
-  // camera1Normal.applyQuaternion(camera1.quaternion);
-  // camera1Normal.normalize();
+  const camera1Normal = new THREE.Vector3( 0, 0, -1 );
+  camera1Normal.applyQuaternion(camera1.quaternion);
+  camera1Normal.normalize();
+  // portal normals do not need to be calculated each frame if the portals do not move
+  const portal1Normal = new THREE.Vector3( 0, 0, 1 );
+  portal1Normal.applyQuaternion(portal1.quaternion);
+  portal1Normal.normalize();
 
-  // const portal1Normal = new THREE.Vector3( 0, 0, 1 );
-  // portal1Normal.applyQuaternion(portal1.quaternion);
-  // portal1Normal.normalize();
+  const portal2Normal = new THREE.Vector3( 0, 0, 1 );
+  portal2Normal.applyQuaternion(portal2.quaternion);
+  portal2Normal.normalize();
 
-  // const portal2Normal = new THREE.Vector3( 0, 0, 1 );
-  // portal2Normal.applyQuaternion(portal2.quaternion);
-  // portal2Normal.normalize();
+  const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
 
-  // const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
+  const rotationFactor = portal2.quaternion.clone().multiply(portal1.quaternion.clone().conjugate());
+  const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(rotationFactor);
 
-  // const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(portal2.quaternion)
-  // camera2Portal2NormalSum.x = -camera2Portal2NormalSum.x;
-  // camera2Portal2NormalSum.z = -camera2Portal2NormalSum.z;
+  const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
 
-  // const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
-
-  // camera2.lookAt(camera2.position.clone().add(camera2Target));
+  camera2.lookAt(camera2.position.clone().add(camera2Target));
 }
