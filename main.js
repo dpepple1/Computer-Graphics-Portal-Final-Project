@@ -4,6 +4,8 @@ import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
+import * as CameraUtils from 'three/addons/utils/CameraUtils.js';
+
 import * as Geometry from './geometry';
 import { degreesToRadians } from './common';
 
@@ -60,6 +62,7 @@ const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
 const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
 
+renderPortal(bluePortal, redPortal, redPortalCamera);
 
 scene.add( redPortalCameraHelper );
 // scene.add( bluePortalCameraHelper );
@@ -72,6 +75,8 @@ function animate() {
 
   updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   // updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
+
+  renderPortal(bluePortal, redPortal, redPortalCamera);
 
   controls.update();
   redPortalCameraHelper.update();
@@ -178,3 +183,39 @@ function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
 //   bluePortalCamera.quaternion.setFromRotationMatrix(bluePortalCameraMatrix);
 
 // }
+
+function renderPortal(lookatPortal, otherPortal, otherCamera)
+{
+
+  //Get Four Corners of the other portal
+  const buffer = otherPortal.geometry.attributes.position.array;
+  let v1 = new THREE.Vector3(buffer[0], buffer[1], buffer[2]);
+  let v2 = new THREE.Vector3(buffer[3], buffer[4], buffer[5]);
+  let v3 = new THREE.Vector3(buffer[6], buffer[7], buffer[8]);
+  let v4 = new THREE.Vector3(buffer[9], buffer[10], buffer[11]);
+
+  otherPortal.localToWorld(v1);
+  otherPortal.localToWorld(v2);
+  otherPortal.localToWorld(v3);
+  otherPortal.localToWorld(v4);
+
+
+  const box1 = Geometry.Box(2, 2, 2, 0xff6347);
+  const box2 = Geometry.Box(2, 2, 2, 0xff6347);
+  const box3 = Geometry.Box(2, 2, 2, 0xff6347);
+  const box4 = Geometry.Box(2, 2, 2, 0xff6347);
+
+  //scene.add(box1, box2, box3, box4);
+
+  box1.position.set(v1);
+  box2.position.set(v2);
+  box3.position.set(v3);
+  box4.position.set(v4);
+
+
+  console.log(v1, v2, v3);
+
+  otherCamera.lookAt(otherPortal.position);
+  CameraUtils.frameCorners(otherCamera, v1, v2, v3, false)
+
+}
