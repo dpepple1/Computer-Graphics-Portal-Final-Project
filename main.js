@@ -62,9 +62,12 @@ const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
 const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
 
-renderPortal(bluePortal, redPortal, redPortalCamera);
+//renderPortal(bluePortal, redPortal, redPortalCamera);
 
 scene.add( redPortalCameraHelper );
+redPortalCamera.position.set(20, 10, -20);
+redPortalCamera.lookAt(redPortal.position.clone().add(new THREE.Vector3(1, 10, 1)))
+//scene.add(bluePortalCameraHelper)
 // scene.add( bluePortalCameraHelper );
 
 
@@ -73,8 +76,9 @@ scene.add( redPortalCameraHelper );
 function animate() {
   requestAnimationFrame(animate);
 
-  updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
+  //updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   // updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
+
 
   renderPortal(bluePortal, redPortal, redPortalCamera);
 
@@ -184,6 +188,20 @@ function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
 
 // }
 
+function getScreenSpace(coordinate, camera)
+{
+  const width = window.innerWidth, height = window.innerHeight;
+  const widthHalf = width / 2, heightHalf = height / 2;
+
+  let pos = coordinate.clone();
+  pos.project(camera);
+  pos.x = ( pos.x * widthHalf ) + widthHalf;
+  pos.y = - ( pos.y * heightHalf ) + heightHalf;
+  return pos
+}
+
+
+
 function renderPortal(lookatPortal, otherPortal, otherCamera)
 {
 
@@ -198,24 +216,14 @@ function renderPortal(lookatPortal, otherPortal, otherCamera)
   otherPortal.localToWorld(v2);
   otherPortal.localToWorld(v3);
   otherPortal.localToWorld(v4);
-
-
-  const box1 = Geometry.Box(2, 2, 2, 0xff6347);
-  const box2 = Geometry.Box(2, 2, 2, 0xff6347);
-  const box3 = Geometry.Box(2, 2, 2, 0xff6347);
-  const box4 = Geometry.Box(2, 2, 2, 0xff6347);
-
-  //scene.add(box1, box2, box3, box4);
-
-  box1.position.set(v1);
-  box2.position.set(v2);
-  box3.position.set(v3);
-  box4.position.set(v4);
-
-
-  console.log(v1, v2, v3);
-
-  otherCamera.lookAt(otherPortal.position);
-  CameraUtils.frameCorners(otherCamera, v1, v2, v3, false)
+  
+  //get screen space coordinates
+  //console.log(getScreenSpace(v1, otherCamera));
+  //console.log(getScreenSpace(v2, otherCamera));
+  //console.log(getScreenSpace(v3, otherCamera));
+  //console.log(getScreenSpace(v4, otherCamera));
+  
+  
+  //CameraUtils.frameCorners(otherCamera, v1, v2, v3, false)
 
 }
