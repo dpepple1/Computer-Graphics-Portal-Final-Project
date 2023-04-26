@@ -32,7 +32,7 @@ const ambientLight = new THREE.AmbientLight(0x777777);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
-const renderTarget = new THREE.WebGLRenderTarget( 512, 512, {format: THREE.RGBAFormat});
+const renderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
 
 init();
 setupScene();
@@ -44,9 +44,9 @@ const redPortal = new THREE.Mesh(redPortalGeometry, redPortalMaterial);
 scene.add(redPortal);
 
 redPortal.position.set(redPortalFrame.position.x, redPortalFrame.position.y, redPortalFrame.position.z);
-redPortal.rotation.x = redPortalFrame.rotation.x
-redPortal.rotation.y = redPortalFrame.rotation.y
-redPortal.rotation.z = redPortalFrame.rotation.z
+redPortal.rotation.x = redPortalFrame.rotation.x;
+redPortal.rotation.y = redPortalFrame.rotation.y;
+redPortal.rotation.z = redPortalFrame.rotation.z;
 
 /*const bluePortalGeometry = new THREE.PlaneGeometry(7, 11);
 const bluePortalMaterial = new THREE.MeshBasicMaterial({ map: renderTarget.texture });
@@ -62,9 +62,9 @@ bluePortal.rotation.z = bluePortalFrame.rotation.z
 const bluePortal = Geometry.BufferPortal(7, 11, renderTarget);
 scene.add(bluePortal)
 bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
-bluePortal.rotation.x = bluePortalFrame.rotation.x
-bluePortal.rotation.y = bluePortalFrame.rotation.y
-bluePortal.rotation.z = bluePortalFrame.rotation.z
+bluePortal.rotation.x = bluePortalFrame.rotation.x;
+bluePortal.rotation.y = bluePortalFrame.rotation.y;
+bluePortal.rotation.z = bluePortalFrame.rotation.z;
 
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
@@ -88,13 +88,14 @@ renderPortal(bluePortal, redPortal, redPortalCamera);
 
 
 function animate() {
-  //requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
 
   //updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   // updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
 
   //scene.background = new THREE.Color(0x11111111);
+  renderPortal(bluePortal, redPortal, redPortalCamera);
   controls.update();
   redPortalCameraHelper.update();
   bluePortalCameraHelper.update();
@@ -202,13 +203,18 @@ function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
 
 function getScreenSpace(coordinate, camera)
 {
-  const width = window.innerWidth, height = window.innerHeight;
-  const widthHalf = width / 2, heightHalf = height / 2;
+  //const width = window.innerWidth, height = window.innerHeight;
+  //const widthHalf = width / 2, heightHalf = height / 2;
+  const width = 1440, height = 1440;
+  const widthHalf = width / 2, heightHalf = height/ 2;
+
 
   let pos = coordinate.clone();
   pos.project(camera);
-  pos.x = ( pos.x * widthHalf ) + widthHalf;
-  pos.y = - ( pos.y * heightHalf ) + heightHalf;
+  pos.x = (pos.x + 1) / 2
+  pos.y = (pos.y + 1) / 2
+  //pos.x = ( pos.x * widthHalf ) + widthHalf;
+  //pos.y = - ( pos.y * heightHalf ) + heightHalf;
   return pos
 }
 
@@ -229,22 +235,39 @@ function renderPortal(lookatPortal, otherPortal, otherCamera)
   otherPortal.localToWorld(v2);
   otherPortal.localToWorld(v3);
   otherPortal.localToWorld(v4);
-  
+
   //get screen space coordinates
-  //console.log(getScreenSpace(v1, otherCamera));
-  //console.log(getScreenSpace(v2, otherCamera));
-  //console.log(getScreenSpace(v3, otherCamera));
-  //console.log(getScreenSpace(v4, otherCamera));
-  
+  let screenV1 = getScreenSpace(v1, otherCamera);
+  let screenV2 = getScreenSpace(v2, otherCamera);
+  let screenV3 = getScreenSpace(v3, otherCamera);
+  let screenV4 = getScreenSpace(v4, otherCamera);
+
+  //render camera output
   renderTarget.texture.encoding = renderer.outputEncoding;
   otherPortal.visible = false;
   renderer.setRenderTarget(renderTarget);
   renderer.render(scene, otherCamera);
   renderer.setRenderTarget(null);
   otherPortal.visible = true;
-  
-  //console.log(portalMaterial)
-  //console.log(lookatPortal.material);
+
+  // const newuvs = new Float32Array([
+  //   screenV3.x, screenV3.y,
+  //   screenV4.x, screenV4.y, 
+  //   screenV2.x, screenV2.y, 
+  //   screenV1.x, screenV1.y,
+  // ]);
+
+  const newuvs = new Float32Array([
+    screenV1.x, screenV1.y,
+    screenV2.x, screenV2.y, 
+    screenV4.x, screenV4.y, 
+    screenV3.x, screenV3.y,
+  ]);
+
+
+  console.log(newuvs);
+
+  lookatPortal.geometry.setAttribute( 'uv', new THREE.BufferAttribute(newuvs, 2));
   
 
 
