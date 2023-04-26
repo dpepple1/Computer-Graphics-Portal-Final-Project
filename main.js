@@ -32,6 +32,8 @@ const ambientLight = new THREE.AmbientLight(0x777777);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
+const renderTarget = new THREE.WebGLRenderTarget( 512, 512, {format: THREE.RGBAFormat});
+
 init();
 setupScene();
 helpers();
@@ -46,8 +48,8 @@ redPortal.rotation.x = redPortalFrame.rotation.x
 redPortal.rotation.y = redPortalFrame.rotation.y
 redPortal.rotation.z = redPortalFrame.rotation.z
 
-const bluePortalGeometry = new THREE.PlaneGeometry(7, 11);
-const bluePortalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+/*const bluePortalGeometry = new THREE.PlaneGeometry(7, 11);
+const bluePortalMaterial = new THREE.MeshBasicMaterial({ map: renderTarget.texture });
 const bluePortal = new THREE.Mesh(bluePortalGeometry, bluePortalMaterial);
 scene.add(bluePortal);
 
@@ -55,6 +57,15 @@ bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, 
 bluePortal.rotation.x = bluePortalFrame.rotation.x
 bluePortal.rotation.y = bluePortalFrame.rotation.y
 bluePortal.rotation.z = bluePortalFrame.rotation.z
+*/
+
+const bluePortal = Geometry.BufferPortal(7, 11, renderTarget);
+scene.add(bluePortal)
+bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
+bluePortal.rotation.x = bluePortalFrame.rotation.x
+bluePortal.rotation.y = bluePortalFrame.rotation.y
+bluePortal.rotation.z = bluePortalFrame.rotation.z
+
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
 const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
@@ -66,22 +77,24 @@ const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
 
 scene.add( redPortalCameraHelper );
 redPortalCamera.position.set(20, 10, -20);
-redPortalCamera.lookAt(redPortal.position.clone().add(new THREE.Vector3(1, 10, 1)))
+//redPortalCamera.lookAt(redPortal.position.clone().add(new THREE.Vector3(1, 10, 1)))
+redPortalCamera.lookAt(redPortal.position)
 //scene.add(bluePortalCameraHelper)
 // scene.add( bluePortalCameraHelper );
+renderPortal(bluePortal, redPortal, redPortalCamera);
+
 
 
 
 
 function animate() {
-  requestAnimationFrame(animate);
+  //requestAnimationFrame(animate);
 
   //updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   // updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
 
-  renderPortal(bluePortal, redPortal, redPortalCamera);
-
+  //scene.background = new THREE.Color(0x11111111);
   controls.update();
   redPortalCameraHelper.update();
   bluePortalCameraHelper.update();
@@ -95,8 +108,8 @@ function animate() {
   renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
   renderer.render(scene, redPortalCamera);
   
-  // renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
-  // renderer.render(scene, bluePortalCamera);
+  //renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
+  //renderer.render(scene, bluePortalCamera);
 }
 
 animate();
@@ -107,7 +120,6 @@ function init() {
 
   camera.position.set(17, 22, -32);
   camera.lookAt(new THREE.Vector3(0, 0, 0))
-
   renderer.render( scene, camera );
 }
 
@@ -212,6 +224,7 @@ function renderPortal(lookatPortal, otherPortal, otherCamera)
   let v3 = new THREE.Vector3(buffer[6], buffer[7], buffer[8]);
   let v4 = new THREE.Vector3(buffer[9], buffer[10], buffer[11]);
 
+
   otherPortal.localToWorld(v1);
   otherPortal.localToWorld(v2);
   otherPortal.localToWorld(v3);
@@ -223,7 +236,18 @@ function renderPortal(lookatPortal, otherPortal, otherCamera)
   //console.log(getScreenSpace(v3, otherCamera));
   //console.log(getScreenSpace(v4, otherCamera));
   
+  renderTarget.texture.encoding = renderer.outputEncoding;
+  otherPortal.visible = false;
+  renderer.setRenderTarget(renderTarget);
+  renderer.render(scene, otherCamera);
+  renderer.setRenderTarget(null);
+  otherPortal.visible = true;
   
-  //CameraUtils.frameCorners(otherCamera, v1, v2, v3, false)
+  //console.log(portalMaterial)
+  //console.log(lookatPortal.material);
+  
 
+
+  //Information on uv-mapping
+  //https://discourse.threejs.org/t/custom-uv-mapping/38677
 }
