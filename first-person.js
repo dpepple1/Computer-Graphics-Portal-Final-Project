@@ -144,7 +144,7 @@ document.addEventListener('keyup', (event) => {
 
 container.addEventListener('mousedown', () => {
 	document.body.requestPointerLock();
-	mouseTime = performance.now();
+	// mouseTime = performance.now();
 });
 
 document.body.addEventListener('mousemove', (event) => {
@@ -252,6 +252,13 @@ function teleportPlayerIfOob() {
 	}
 }
 
+function teleportPlayerIfPortalBlue() {
+	let bbox = new THREE.Box3().setFromObject(bluePortalFrame);
+	console.log(bbox)
+	// if (camera.position.x <)
+}
+
+
 /* ANIMATE */
 function animate() {
     const deltaTime = Math.min(0.05, clock.getDelta()) / STEPS_PER_FRAME;
@@ -259,6 +266,7 @@ function animate() {
 		controls(deltaTime);
 		updatePlayer(deltaTime);
 		teleportPlayerIfOob();
+		teleportPlayerIfPortalBlue();
 	}
 
 	// reset the opacity at the beginning of the loop
