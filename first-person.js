@@ -9,9 +9,7 @@ import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Octree } from 'three/addons/math/Octree.js';
-import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
 import { Capsule } from 'three/addons/math/Capsule.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 ////////////////////////////////////////////
 import * as Geometry from './geometry.js';
@@ -118,13 +116,6 @@ function setupScene() {
 	scene.add(pointLight, ambientLight);
 }
 
-function helpers() {
-	// Helpers
-	const lightHelper = new THREE.PointLightHelper(pointLight);
-	const gridHelper = new THREE.GridHelper(200, 50);
-	scene.add(lightHelper, gridHelper);
-}
-
 setupScene();
 ////////////////////////////////////////////////////////////
 
@@ -138,13 +129,9 @@ const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 
 let playerOnFloor = false;
-let mouseTime = 0;
 
 const keyStates = {};
 
-const vector1 = new THREE.Vector3();
-const vector2 = new THREE.Vector3();
-const vector3 = new THREE.Vector3();
 
 /* EVENTS LISTENERS */
 document.addEventListener('keydown', (event) => {
@@ -159,12 +146,6 @@ container.addEventListener('mousedown', () => {
 	document.body.requestPointerLock();
 	mouseTime = performance.now();
 });
-
-/*
-document.addEventListener('mouseup', () => {
-	if (document.pointerLockElement !== null) throwBall();
-});
-*/
 
 document.body.addEventListener('mousemove', (event) => {
 	if (document.pointerLockElement === document.body) {
@@ -257,33 +238,6 @@ worldOctree.fromGraphNode(redPortalFrame);
 worldOctree.fromGraphNode(bluePortalFrame);
 worldOctree.fromGraphNode(tetrahedron);
 worldOctree.fromGraphNode(box);
-
-/*
-const loader = new GLTFLoader().setPath('./');
-
-loader.load('collision-world.glb', (gltf) => {
-	scene.add(gltf.scene);
-	worldOctree.fromGraphNode(gltf.scene);
-	gltf.scene.traverse(child => {
-		if (child.isMesh) {
-			child.castShadow = true;
-			child.receiveShadow = true;
-			if (child.material.map) {
-				child.material.map.anisotropy = 4;
-			}
-		}
-	});
-	const helper = new OctreeHelper(worldOctree);
-	helper.visible = false;
-	scene.add(helper);
-	const gui = new GUI({ width: 200 });
-	gui.add({ debug: false }, 'debug')
-		.onChange(function (value) {
-			helper.visible = value;
-		});
-	animate();
-});
-*/
 
 
 animate();
