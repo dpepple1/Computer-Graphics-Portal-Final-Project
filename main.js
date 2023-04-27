@@ -90,6 +90,7 @@ function animate() {
   updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera);
+  renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera);
   controls.update();
   redPortalCameraHelper.update();
   bluePortalCameraHelper.update();
@@ -213,10 +214,14 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera)
   let v4 = new THREE.Vector3(buffer[9], buffer[10], buffer[11]);
 
 
+
   otherPortal.localToWorld(v1);
   otherPortal.localToWorld(v2);
   otherPortal.localToWorld(v3);
   otherPortal.localToWorld(v4);
+
+  otherCamera.updateMatrixWorld();
+
 
   //get screen space coordinates
   let screenV1 = getScreenSpace(v1, otherCamera);
@@ -224,6 +229,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera)
   let screenV3 = getScreenSpace(v3, otherCamera);
   let screenV4 = getScreenSpace(v4, otherCamera);
 
+  //console.log(screenV1);
 
   renderTarget.texture.encoding = renderer.outputEncoding;
 
