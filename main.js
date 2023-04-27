@@ -8,6 +8,7 @@ import * as CameraUtils from 'three/addons/utils/CameraUtils.js';
 
 import * as Geometry from './geometry';
 import { degreesToRadians } from './common';
+import * as Colors from './Colors'
 
 const scene = new THREE.Scene();
 
@@ -36,7 +37,6 @@ const renderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGB
 
 init();
 setupScene();
-helpers();
 
 //RedPortal
 const redPortalGeometry = new THREE.PlaneGeometry(7, 11);
@@ -59,26 +59,35 @@ bluePortal.rotation.z = bluePortalFrame.rotation.z;
 
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
-const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
-
 const bluePortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
-const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
 
+// Helpers
+const redPortalCameraHelper = new THREE.CameraHelper( redPortalCamera );
+redPortalCameraHelper.setColors( Colors.red,  Colors.white,  Colors.white,  Colors.pink,  Colors.white );
+
+const bluePortalCameraHelper = new THREE.CameraHelper( bluePortalCamera );
+bluePortalCameraHelper.setColors( Colors.blue,  Colors.white,  Colors.white,  Colors.skyblue,  Colors.white );
+
+const cameraHelper = new THREE.CameraHelper( camera );
+const lightHelper = new THREE.PointLightHelper(pointLight);
+const gridHelper = new THREE.GridHelper(200, 50);
+scene.add( lightHelper, gridHelper);
+scene.add( cameraHelper );
 scene.add( redPortalCameraHelper );
-redPortalCamera.position.set(20, 10, -20);
-redPortalCamera.lookAt(redPortal.position)
+scene.add( bluePortalCameraHelper );
+
+// DEVELOPER CAMERA
+const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
+topViewCamera.position.set(0, 50, 0);
+topViewCamera.lookAt(0, 0, 0);
 
 
 
 function animate() {
   requestAnimationFrame(animate);
 
-  //updateRelativeDistanceAndRotation(camera, bluePortal, redPortalCamera, redPortal);
-  //updateRelativeDistanceAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
-
-
-  redPortalCamera.position.add(new THREE.Vector3(-0.02, 0, -0.01));
-  redPortalCamera.lookAt(redPortal.position);
+  updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
+  updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera);
   controls.update();
@@ -96,6 +105,9 @@ function animate() {
   
   renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
   renderer.render(scene, bluePortalCamera);
+
+  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  // renderer.render(scene, topViewCamera);
 }
 
 animate();
@@ -111,7 +123,7 @@ function init() {
 
 function setupScene() {
   // Objects
-  scene.add(floor);
+  // scene.add(floor);
   floor.position.set(0, -0.5, 0);
 
   scene.add(box);
@@ -135,7 +147,7 @@ function setupScene() {
   redPortalFrame.position.set(-8, 5.5, -4);
   redPortalFrame.rotateY(degreesToRadians(135));
   bluePortalFrame.position.set(10, 5.5, 4);
-  bluePortalFrame.rotateY(degreesToRadians(180));
+  bluePortalFrame.rotateY(degreesToRadians(210));
 
   // Light
   pointLight.position.set(10, 20, 10);
@@ -143,48 +155,39 @@ function setupScene() {
   scene.add(pointLight, ambientLight);
 }
 
-function helpers() {
-  // Helpers
-  const lightHelper = new THREE.PointLightHelper(pointLight);
-  const gridHelper = new THREE.GridHelper(200, 50);
-  scene.add(lightHelper, gridHelper);
+function updateRelativePositionAndRotation(camera1, portal1, camera2, portal2) {
+  // Update Relative Position
+  const camera1Position = new THREE.Vector3();
+  camera1Position.copy(camera1.position);
+  const camera1PositionRelativeToPortal1 = portal1.worldToLocal(camera1Position);
+  camera2.position.copy( portal2.localToWorld(camera1PositionRelativeToPortal1) );
+
+  // Update Relative rotation
+  camera2.rotation.x = camera1.rotation.x;
+  camera2.rotation.y = camera1.rotation.y;
+  camera2.rotation.z = camera1.rotation.z;
+
+  const camera1Normal = new THREE.Vector3( 0, 0, -1 );
+  camera1Normal.applyQuaternion(camera1.quaternion);
+  camera1Normal.normalize();
+  // portal normals do not need to be calculated each frame if the portals do not move
+  const portal1Normal = new THREE.Vector3( 0, 0, 1 );
+  portal1Normal.applyQuaternion(portal1.quaternion);
+  portal1Normal.normalize();
+
+  const portal2Normal = new THREE.Vector3( 0, 0, 1 );
+  portal2Normal.applyQuaternion(portal2.quaternion);
+  portal2Normal.normalize();
+
+  const camera1Portal1NormalSum = portal1Normal.clone().add(camera1Normal);
+
+  const rotationFactor = portal2.quaternion.clone().multiply(portal1.quaternion.clone().conjugate());
+  const camera2Portal2NormalSum = camera1Portal1NormalSum.clone().applyQuaternion(rotationFactor);
+
+  const camera2Target = camera2Portal2NormalSum.clone().sub(portal2Normal);
+  
+  camera2.lookAt(camera2.position.clone().add(camera2Target));
 }
-
-function updateRelativeDistanceAndRotation(camera1, portal1, camera2, portal2) {
-  const portal2matrix = new THREE.Matrix4();
-  const portal1matrix = new THREE.Matrix4();
-  const camera1matrix = new THREE.Matrix4();
-  portal2matrix.copy(portal2.matrixWorld);
-  portal1matrix.copy(portal1.matrixWorld);
-  camera1matrix.copy(camera1.matrixWorld);
-  const matrix = portal2matrix.multiply( portal1matrix.multiply(camera1matrix) );
-
-  // const matrix = portal2.matrixWorld.multiply( portal1.matrixWorld.multiply(camera1.matrixWorld) );
-  camera2.position.setFromMatrixPosition(matrix);
-  camera2.quaternion.setFromRotationMatrix(matrix);
-}
-
-// function updateRelativeDistanceAndRotation() {
-//   const redPortalMatrix = new THREE.Matrix4();
-//   const bluePortalMatrix = new THREE.Matrix4();
-//   const cameraMatrix = new THREE.Matrix4();
-
-//   redPortalMatrix.copy(redPortal.matrixWorld);
-//   bluePortalMatrix.copy(bluePortal.matrixWorld);
-//   cameraMatrix.copy(camera.matrixWorld);
-
-//   const redPortalCameraMatrix = redPortalMatrix.multiply( bluePortalMatrix.multiply(cameraMatrix) );
-//   const bluePortalCameraMatrix = redPortalMatrix.multiply( bluePortalMatrix.multiply(cameraMatrix) );
-
-
-//   // const matrix = portal2.matrixWorld.multiply( portal1.matrixWorld.multiply(camera1.matrixWorld) );
-//   redPortalCamera.position.setFromMatrixPosition(redPortalCameraMatrix);
-//   redPortalCamera.quaternion.setFromRotationMatrix(redPortalCameraMatrix);
-
-//   bluePortalCamera.position.setFromMatrixPosition(bluePortalCameraMatrix);
-//   bluePortalCamera.quaternion.setFromRotationMatrix(bluePortalCameraMatrix);
-
-// }
 
 function getScreenSpace(coordinate, camera)
 {
