@@ -42,3 +42,44 @@ export function PortalFrame(color) {
 
   return mesh;
 }
+
+export function BufferPortal(width, height, renderTarget){
+  const geometry = new THREE.BufferGeometry();
+  //const material = new THREE.MeshBasicMaterial( { map: renderTarget.texture} );
+  const material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
+  let x = width / 2;
+  let y = height / 2;
+
+  //top left > top right > bottom right > bottom left
+  const vertices  = new Float32Array([
+    -x, y, 0,
+    x, y, 0,
+    x, -y, 0,
+    -x, -y, 0,
+  ]);
+
+  const indices =[
+    0, 1, 2,
+    2, 3, 0,
+  ];
+
+  const uvs = new Float32Array([
+    0, 1, 
+    1, 1, 
+    1, 0, 
+    0, 0,
+  ]);
+
+  geometry.setIndex(indices);
+  geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+  geometry.setAttribute( 'uv', new THREE.BufferAttribute(uvs, 2));
+
+  const mesh = new THREE.Mesh( geometry, material );
+  return mesh;
+
+
+  //const bluePortalGeometry = new THREE.PlaneGeometry(7, 11);
+  //const bluePortalMaterial = new THREE.MeshBasicMaterial({ map: renderTarget.texture });
+  //const bluePortal = new THREE.Mesh(bluePortalGeometry, bluePortalMaterial);
+  //return bluePortal;
+}
