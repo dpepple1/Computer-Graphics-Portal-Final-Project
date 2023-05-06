@@ -80,6 +80,9 @@ const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
 topViewCamera.position.set(0, 50, 0);
 topViewCamera.lookAt(0, 0, 0);
 
+const texture = new THREE.TextureLoader().load( 'grid.png' );
+bluePortal.material = new THREE.MeshBasicMaterial({map: texture});
+
 
 
 function animate() {
@@ -227,6 +230,9 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   let screenV3 = getScreenSpace(v3, otherCamera);
   let screenV4 = getScreenSpace(v4, otherCamera);
 
+
+  //console.log(screenV1, screenV2, screenV3, screenV4);
+
   //console.log(screenV1);
 
   renderTarget.texture.encoding = renderer.outputEncoding;
@@ -236,7 +242,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   otherPortalFrame.visible = false;
 
   //temporarily replace material
-  lookatPortal.material = new THREE.MeshBasicMaterial({color: 0xFFFFFFFF});
+  //lookatPortal.material = new THREE.MeshBasicMaterial({color: 0xFFFFFFFF});
 
   //render to texture
   renderer.setRenderTarget(renderTarget);
@@ -244,7 +250,9 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   renderer.render(scene, otherCamera);
   renderer.setRenderTarget(null);
 
-  lookatPortal.material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
+  
+
+  //lookatPortal.material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
 
   //Make portal visible again
   otherPortalFrame.visible = true;
