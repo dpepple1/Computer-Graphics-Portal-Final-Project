@@ -119,11 +119,22 @@ function setupScene() {
 setupScene();
 ////////////////////////////////////////////////////////////
 
-/* PLAYER */
+/* COLLISION DETECTION LIBRARY */
 let worldOctree = new Octree();
 
+/* PLAYER PARAMETERS */
+const playerHeight = 1.0;
+const playerRadius = 0.4;
+const playerXDefault = 0.0;
+const playerYDefault = 0.35;
+const playerZDefault = 0.0;
+const playerFloorSpeed = 25;
+const playerAirSpeed = 8;
+const playerCollider = new Capsule(new THREE.Vector3(playerXDefault, playerYDefault, playerZDefault), new THREE.Vector3(playerXDefault, playerHeight + playerYDefault, playerZDefault), playerRadius);
 
-const playerCollider = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1, 0), 0.35);
+let playerX = 0.0;
+let playerY = 0.0;
+let playerZ = 0.0;
 
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
@@ -132,8 +143,7 @@ let playerOnFloor = false;
 
 const keyStates = {};
 
-
-/* EVENTS LISTENERS */
+/* EVENT LISTENERS */
 document.addEventListener('keydown', (event) => {
 	keyStates[event.code] = true;
 });
@@ -142,18 +152,19 @@ document.addEventListener('keyup', (event) => {
 	keyStates[event.code] = false;
 });
 
+/* OPTIONAL POINTER LOCK*/
+////////////////////////////////////////////////////////////////
 container.addEventListener('mousedown', () => {
 	document.body.requestPointerLock();
-	// mouseTime = performance.now();
 });
 
 document.body.addEventListener('mousemove', (event) => {
 	if (document.pointerLockElement === document.body) {
 		camera.rotation.y -= event.movementX / 500;
 		camera.rotation.x -= event.movementY / 500;
-
 	}
 });
+////////////////////////////////////////////////////////////////
 
 /* WINDOW RESIZE */ 
 window.addEventListener('resize', onWindowResize);
@@ -208,8 +219,7 @@ function getSideVector() {
 
 /* CONTROLS */
 function controls(deltaTime) {
-	// gives a bit of air control
-	const speedDelta = deltaTime * (playerOnFloor ? 25 : 8);
+	const speedDelta = deltaTime * (playerOnFloor ? playerFloorSpeed : playerAirSpeed);
 	if (keyStates['KeyW']) {
 		playerVelocity.add(getForwardVector().multiplyScalar(speedDelta));
 	}
@@ -224,12 +234,12 @@ function controls(deltaTime) {
 	}
 	if (playerOnFloor) {
 		if (keyStates['Space']) {
-			playerVelocity.y = 15;
+			playerVelocity.y = 20;
 		}
 	}
 }
 
-
+/* LOAD MESHES INTO COLLISION DETECTION LIBRARY */
 const loader = new GLTFLoader();
 worldOctree.fromGraphNode(floor);
 worldOctree.fromGraphNode(longBox);
@@ -239,23 +249,58 @@ worldOctree.fromGraphNode(bluePortalFrame);
 worldOctree.fromGraphNode(tetrahedron);
 worldOctree.fromGraphNode(box);
 
+/* CALCULATE BOUND OF PORTAL */
+let blueBox = new THREE.Box3().setFromObject(bluePortalFrame);
+let redBox = new THREE.Box3().setFromObject(redPortalFrame);
+console.log(blueBox);
+console.log(redBox);
 
+/* INITIALIZES ANIMATION LOOP */
 animate();
 
-function teleportPlayerIfOob() {
+/* TELEPORT OUT-OF-BOUNDS PLAYER */
+function teleportPlayerIfOutOfBounds() {
 	if (camera.position.y <= - 25) {
-		playerCollider.start.set(0, 0.35, 0);
-		playerCollider.end.set(0, 1, 0);
-		playerCollider.radius = 0.45;
+		playerCollider.start.set(playerXDefault, playerYDefault, playerZDefault);
+		playerCollider.end.set(playerXDefault, playerYDefault + playerHeight, playerZDefault);
+		playerCollider.radius = playerRadius;
 		camera.position.copy(playerCollider.end);
-		camera.rotation.set(0, 0, 0);
+		camera.rotation.set(0, 0, 0); // Look forward
 	}
 }
 
+/* TELEPORTS PLAYER WALKING THROUGH BLUE PORTAL */
 function teleportPlayerIfPortalBlue() {
-	let bbox = new THREE.Box3().setFromObject(bluePortalFrame);
-	console.log(bbox)
-	// if (camera.position.x <)
+	// let bbox = new THREE.Box3().setFromObject(bluePortalFrame);
+    if (camera.position.x < blueBox.max.x && camera.position.x > blueBox.min.x) {
+        if (camera.position.z < blueBox.max.z && camera.position.z > blueBox.min.z) {
+            let ratioX = (camera.position.x - blueBox.min.x) / (blueBox.max.x - blueBox.min.x);
+            /*
+            let ratioZ = (camera.position.z - blueBox.min.z) / (blueBox.max.z - blueBox.min.z);
+             */
+            playerX = redBox.max.x - (ratioX * (Math.abs(redBox.max.x - redBox.min.x)));
+            playerY = camera.position.y;
+            playerZ = redBox.max.z + (ratioX * (Math.abs(redBox.max.x - redBox.min.x))) / Math.cos((5*Math.PI / 6));
+            
+            console.log(playerZ);
+            var vector = new THREE.Vector3();
+            playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
+            playerCollider.end.set(playerX, playerY, playerZ);
+            playerCollider.radius = playerRadius;
+            camera.position.copy(playerCollider.end);
+            camera.rotation.set(0,-5 * Math.PI / 12,0);
+            camera.getWorldDirection(vector);
+            console.log(vector);
+            playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.z, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
+        }
+    }
+}
+
+/* TELEPORTS PLAYER WALKING THROUGH RED PORTAL */
+function teleportPlayerIfPortalRed() {
+    let bbox = new THREE.Box3().setFromObject(redPortalFrame);
+    console.log(bbox);
+    // if (camera.position.x <)
 }
 
 
@@ -265,9 +310,11 @@ function animate() {
 	for (let i = 0; i < STEPS_PER_FRAME; i++) {
 		controls(deltaTime);
 		updatePlayer(deltaTime);
-		teleportPlayerIfOob();
+		teleportPlayerIfOutOfBounds();
 		teleportPlayerIfPortalBlue();
+        // teleportPlayerIfPortalRed();
 	}
+    // console.log(camera.rotation);
 
 	// reset the opacity at the beginning of the loop
 
