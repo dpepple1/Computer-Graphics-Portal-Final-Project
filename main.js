@@ -4,8 +4,6 @@ import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
-import * as CameraUtils from 'three/addons/utils/CameraUtils.js';
-
 import * as Geometry from './geometry';
 import { degreesToRadians } from './common';
 import * as Colors from './Colors'
@@ -35,26 +33,19 @@ const controls = new OrbitControls(camera, renderer.domElement);
 
 const bluePortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
 const redPortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
+const bluePortalBackRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
+const redPortalBackRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
 
 init();
 setupScene();
 
-//RedPortal
+//Create Portals
 const redPortal = Geometry.BufferPortal(7, 11, redPortalRenderTarget);
-scene.add(redPortal);
+const redPortalBack = Geometry.BufferPortal(7,11, redPortalRenderTarget);
+const bluePortal = Geometry.BufferPortal(7, 11, bluePortalBackRenderTarget);
+const bluePortalBack = Geometry.BufferPortal(7,11, bluePortalBackRenderTarget);
 
-redPortal.position.set(redPortalFrame.position.x, redPortalFrame.position.y, redPortalFrame.position.z);
-redPortal.rotation.x = redPortalFrame.rotation.x;
-redPortal.rotation.y = redPortalFrame.rotation.y;
-redPortal.rotation.z = redPortalFrame.rotation.z;
-
-//BluePortal
-const bluePortal = Geometry.BufferPortal(7, 11, bluePortalRenderTarget);
-scene.add(bluePortal);
-bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
-bluePortal.rotation.x = bluePortalFrame.rotation.x;
-bluePortal.rotation.y = bluePortalFrame.rotation.y;
-bluePortal.rotation.z = bluePortalFrame.rotation.z;
+setupPortals();
 
 
 const redPortalCamera = new THREE.PerspectiveCamera( camera.fov, camera.aspect, camera.near, camera.far );
@@ -80,9 +71,6 @@ const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
 topViewCamera.position.set(0, 50, 0);
 topViewCamera.lookAt(0, 0, 0);
 
-
-
-
 function animate() {
   requestAnimationFrame(animate);
 
@@ -90,7 +78,10 @@ function animate() {
   updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera, bluePortalRenderTarget);
+  renderPortal(bluePortalBack, redPortalBack, redPortalFrame, redPortalCamera, bluePortalBackRenderTarget);
+
   renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
+  renderPortal(redPortalBack, bluePortalBack, bluePortalFrame, bluePortalCamera, redPortalBackRenderTarget)
 
   controls.update();
   redPortalCameraHelper.update();
@@ -102,14 +93,14 @@ function animate() {
   renderer.setViewport(0, 0, 2 * window.innerWidth / 3, window.innerHeight);
   renderer.render(scene, camera);
 
-  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  renderer.render(scene, redPortalCamera);
+  //renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  //renderer.render(scene, redPortalCamera);
   
   renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
   renderer.render(scene, bluePortalCamera);
 
-  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  // renderer.render(scene, topViewCamera);
+  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+  renderer.render(scene, topViewCamera);
 }
 
 animate();
@@ -202,8 +193,6 @@ function getScreenSpace(coordinate, camera)
   return pos
 }
 
-
-
 function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, renderTarget)
 {
 
@@ -272,4 +261,37 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   //https://discourse.threejs.org/t/custom-uv-mapping/38677
   lookatPortal.geometry.setAttribute( 'uv', new THREE.BufferAttribute(newuvs, 2));
   
+}
+
+
+function setupPortals()
+{
+  //Red Portal
+  scene.add(redPortal);
+  redPortal.position.set(redPortalFrame.position.x, redPortalFrame.position.y, redPortalFrame.position.z);
+  redPortal.rotation.x = redPortalFrame.rotation.x;
+  redPortal.rotation.y = redPortalFrame.rotation.y;
+  redPortal.rotation.z = redPortalFrame.rotation.z;
+  //Other Red Portal
+  scene.add(redPortalBack);
+  redPortalBack.position.set(redPortalFrame.position.x, redPortalFrame.position.y, redPortalFrame.position.z);
+  redPortalBack.rotation.x = redPortalFrame.rotation.x;
+  redPortalBack.rotation.y = redPortalFrame.rotation.y + Math.PI;
+  redPortalBack.rotation.z = redPortalFrame.rotation.z;
+  
+  //Blue Portal
+  scene.add(bluePortal);
+  bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
+  bluePortal.rotation.x = bluePortalFrame.rotation.x;
+  bluePortal.rotation.y = bluePortalFrame.rotation.y;
+  bluePortal.rotation.z = bluePortalFrame.rotation.z;
+  //Other Blue Portal
+  scene.add(bluePortalBack);
+  bluePortalBack.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
+  bluePortalBack.rotation.x = bluePortalFrame.rotation.x;
+  bluePortalBack.rotation.y = bluePortalFrame.rotation.y + Math.PI;
+  bluePortalBack.rotation.z = bluePortalFrame.rotation.z;
+  
+
+
 }
