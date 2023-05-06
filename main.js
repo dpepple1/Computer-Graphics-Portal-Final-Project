@@ -33,15 +33,14 @@ const ambientLight = new THREE.AmbientLight(0x777777);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
-const renderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
+const bluePortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
+const redPortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
 
 init();
 setupScene();
 
 //RedPortal
-const redPortalGeometry = new THREE.PlaneGeometry(7, 11);
-const redPortalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-const redPortal = new THREE.Mesh(redPortalGeometry, redPortalMaterial);
+const redPortal = Geometry.BufferPortal(7, 11, redPortalRenderTarget);
 scene.add(redPortal);
 
 redPortal.position.set(redPortalFrame.position.x, redPortalFrame.position.y, redPortalFrame.position.z);
@@ -50,8 +49,8 @@ redPortal.rotation.y = redPortalFrame.rotation.y;
 redPortal.rotation.z = redPortalFrame.rotation.z;
 
 //BluePortal
-const bluePortal = Geometry.BufferPortal(7, 11, renderTarget);
-scene.add(bluePortal)
+const bluePortal = Geometry.BufferPortal(7, 11, bluePortalRenderTarget);
+scene.add(bluePortal);
 bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
 bluePortal.rotation.x = bluePortalFrame.rotation.x;
 bluePortal.rotation.y = bluePortalFrame.rotation.y;
@@ -89,8 +88,9 @@ function animate() {
   updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
   updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
-  renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera);
-  renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera);
+  renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera, bluePortalRenderTarget);
+  //renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
+
   controls.update();
   redPortalCameraHelper.update();
   bluePortalCameraHelper.update();
@@ -203,7 +203,7 @@ function getScreenSpace(coordinate, camera)
 
 
 
-function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera)
+function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, renderTarget)
 {
 
   //Get Four Corners of the other portal
@@ -212,8 +212,6 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera)
   let v2 = new THREE.Vector3(buffer[3], buffer[4], buffer[5]);
   let v3 = new THREE.Vector3(buffer[6], buffer[7], buffer[8]);
   let v4 = new THREE.Vector3(buffer[9], buffer[10], buffer[11]);
-
-
 
   otherPortal.localToWorld(v1);
   otherPortal.localToWorld(v2);
@@ -259,6 +257,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera)
     screenV3.x, screenV3.y,
   ]);
 
+  //console.log(newuvs);
   //Information on uv-mapping
   //https://discourse.threejs.org/t/custom-uv-mapping/38677
   lookatPortal.geometry.setAttribute( 'uv', new THREE.BufferAttribute(newuvs, 2));
