@@ -1,7 +1,15 @@
+/*****************************/
+// Filename: main.js
+// Project: Portal
+// Group: Eduardo P., Derek P., Steven G.
+/*****************************/
+
 import './style.css'
 
+/* LIBRARIES */
 import * as THREE from 'three';
 
+// Orbit Camera
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 import * as CameraUtils from 'three/addons/utils/CameraUtils.js';
@@ -10,16 +18,75 @@ import * as Geometry from './geometry';
 import { degreesToRadians } from './common';
 import * as Colors from './Colors'
 
-const scene = new THREE.Scene();
+// Collision Detection Library
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Octree } from 'three/addons/math/Octree.js';
+import { Capsule } from 'three/addons/math/Capsule.js';
 
-const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
+import Stats from 'three/addons/libs/stats.module.js';
+
+/* CLOCK FOR PHYSICS */
+const clock = new THREE.Clock();
+
+/* SCENE SETUP */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x88ccee);
+scene.fog = new THREE.Fog(0x88ccee, 0, 200);
+
+/* CONTAINER */
+const container = document.getElementById('container');
+
+/* CAMERA */
+// const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.rotation.order = 'YXZ';
+
+/* LIGHTING */
+const hemiLight = new THREE.HemisphereLight(0x4488bb, 0x002244, 0.5);
+hemiLight.position.set(2, 1, 1);
+scene.add(hemiLight);
+
+/* SHADOWS */
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(- 5, 25, - 1);
+directionalLight.castShadow = true;
+directionalLight.shadow.camera.near = 0.01;
+directionalLight.shadow.camera.far = 500;
+directionalLight.shadow.camera.right = 30;
+directionalLight.shadow.camera.left = - 30;
+directionalLight.shadow.camera.top = 30;
+directionalLight.shadow.camera.bottom = - 30;
+directionalLight.shadow.mapSize.width = 1024;
+directionalLight.shadow.mapSize.height = 1024;
+directionalLight.shadow.radius = 4;
+directionalLight.shadow.bias = - 0.00006;
+scene.add(directionalLight);
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#canvas'),
+  antialias: true
 });
-
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// container.appendChild(renderer.domElement);
+renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
 renderer.autoClear = false;
 
+/* CONSTANTS */
+const STEPS_PER_FRAME = 1;
+const GRAVITY = 30;
+
+/* STATS */
+const stats = new Stats();
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.top = '0px';
+container.appendChild(stats.domElement);
+
+/* SCENE GEOMETRY */
 const floor = Geometry.Box(40, 1, 40, 0xffffff);
 const box = Geometry.Box(4, 4, 4, 0xff6347);
 const longBox = Geometry.Box(2, 4, 18, 0x40ab00);
@@ -27,11 +94,10 @@ const sphere = Geometry.Sphere(3, 0xaa00bb);
 const tetrahedron = Geometry.Tetrahedron(4, 0x3363ff);
 const redPortalFrame = Geometry.PortalFrame(0xff0000);
 const bluePortalFrame = Geometry.PortalFrame(0x0000ff);
-
 const pointLight = new THREE.PointLight(0xffffff);
 const ambientLight = new THREE.AmbientLight(0x777777);
 
-const controls = new OrbitControls(camera, renderer.domElement);
+// const controls = new OrbitControls(camera, renderer.domElement);
 
 const bluePortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
 const redPortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: THREE.RGBAFormat});
@@ -39,7 +105,185 @@ const redPortalRenderTarget = new THREE.WebGLRenderTarget( 1080, 1080, {format: 
 init();
 setupScene();
 
-//RedPortal
+/* PLAYER */
+/* COLLISION DETECTION LIBRARY */
+let worldOctree = new Octree();
+
+/* PLAYER PARAMETERS */
+const playerHeight = 5.0;
+const playerRadius = 0.4;
+const playerXDefault = 0.0;
+const playerYDefault = 0.35;
+const playerZDefault = 0.0;
+const playerFloorSpeed = 25;
+const playerAirSpeed = 8;
+const playerCollider = new Capsule(new THREE.Vector3(playerXDefault, playerYDefault, playerZDefault), new THREE.Vector3(playerXDefault, playerHeight + playerYDefault, playerZDefault), playerRadius);
+
+let playerX = 0.0;
+let playerY = 0.0;
+let playerZ = 0.0;
+
+const playerVelocity = new THREE.Vector3();
+const playerDirection = new THREE.Vector3();
+
+let playerOnFloor = false;
+
+const keyStates = {};
+
+/* EVENT LISTENERS */
+document.addEventListener('keydown', (event) => {
+    keyStates[event.code] = true;
+});
+
+document.addEventListener('keyup', (event) => {
+    keyStates[event.code] = false;
+});
+
+/* OPTIONAL POINTER LOCK*/
+container.addEventListener('mousedown', () => {
+    document.body.requestPointerLock();
+});
+
+document.body.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement === document.body) {
+        camera.rotation.y -= event.movementX / 500;
+        camera.rotation.x -= event.movementY / 500;
+    }
+});
+
+/* WINDOW RESIZE */
+window.addEventListener('resize', onWindowResize);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* PLAYER COLLISION */
+function playerCollisions() {
+    const result = worldOctree.capsuleIntersect(playerCollider);
+    playerOnFloor = false;
+    if (result) {
+        playerOnFloor = result.normal.y > 0;
+        if (!playerOnFloor) {
+            playerVelocity.addScaledVector(result.normal, - result.normal.dot(playerVelocity));
+        }
+        playerCollider.translate(result.normal.multiplyScalar(result.depth));
+    }
+}
+
+/* PLAYER UPDATE */
+function updatePlayer(deltaTime) {
+    let damping = Math.exp(- 4 * deltaTime) - 1;
+    if (!playerOnFloor) {
+        playerVelocity.y -= GRAVITY * deltaTime;
+        damping *= 0.1; // Air Resistance
+    }
+    playerVelocity.addScaledVector(playerVelocity, damping);
+    const deltaPosition = playerVelocity.clone().multiplyScalar(deltaTime);
+    playerCollider.translate(deltaPosition);
+    playerCollisions();
+    camera.position.copy(playerCollider.end);
+}
+
+/* FORWARD */
+function getForwardVector() {
+    camera.getWorldDirection(playerDirection);
+    playerDirection.y = 0;
+    playerDirection.normalize();
+    return playerDirection;
+}
+/* SIDE TO SIDE */
+function getSideVector() {
+    camera.getWorldDirection(playerDirection);
+    playerDirection.y = 0;
+    playerDirection.normalize();
+    playerDirection.cross(camera.up);
+    return playerDirection;
+}
+
+/* CONTROLS */
+function controls(deltaTime) {
+    const speedDelta = deltaTime * (playerOnFloor ? playerFloorSpeed : playerAirSpeed);
+    if (keyStates['KeyW']) {
+        playerVelocity.add(getForwardVector().multiplyScalar(speedDelta));
+    }
+    if (keyStates['KeyS']) {
+        playerVelocity.add(getForwardVector().multiplyScalar(- speedDelta));
+    }
+    if (keyStates['KeyA']) {
+        playerVelocity.add(getSideVector().multiplyScalar(- speedDelta));
+    }
+    if (keyStates['KeyD']) {
+        playerVelocity.add(getSideVector().multiplyScalar(speedDelta));
+    }
+    if (playerOnFloor) {
+        if (keyStates['Space']) {
+            playerVelocity.y = 20;
+        }
+    }
+}
+
+/* LOAD MESHES INTO COLLISION DETECTION LIBRARY */
+const loader = new GLTFLoader();
+worldOctree.fromGraphNode(floor);
+worldOctree.fromGraphNode(longBox);
+worldOctree.fromGraphNode(sphere);
+worldOctree.fromGraphNode(redPortalFrame);
+worldOctree.fromGraphNode(bluePortalFrame);
+worldOctree.fromGraphNode(tetrahedron);
+worldOctree.fromGraphNode(box);
+
+/* CALCULATE BOUND OF PORTAL */
+let blueBox = new THREE.Box3().setFromObject(bluePortalFrame);
+let redBox = new THREE.Box3().setFromObject(redPortalFrame);
+
+/* TELEPORT OUT-OF-BOUNDS PLAYER */
+function teleportPlayerIfOutOfBounds() {
+    if (camera.position.y <= - 25) {
+        playerCollider.start.set(playerXDefault, playerYDefault, playerZDefault);
+        playerCollider.end.set(playerXDefault, playerYDefault + playerHeight, playerZDefault);
+        playerCollider.radius = playerRadius;
+        camera.position.copy(playerCollider.end);
+        camera.rotation.set(0, 0, 0); // Look forward
+    }
+}
+
+/* TELEPORTS PLAYER WALKING THROUGH BLUE PORTAL */
+function teleportPlayerIfPortalBlue() {
+    // let bbox = new THREE.Box3().setFromObject(bluePortalFrame);
+    if (camera.position.x < blueBox.max.x && camera.position.x > blueBox.min.x) {
+        if (camera.position.z < blueBox.max.z && camera.position.z > blueBox.min.z) {
+            let ratioX = (camera.position.x - blueBox.min.x) / (blueBox.max.x - blueBox.min.x);
+            /*
+            let ratioZ = (camera.position.z - blueBox.min.z) / (blueBox.max.z - blueBox.min.z);
+             */
+            playerX = redBox.max.x - (ratioX * (Math.abs(redBox.max.x - redBox.min.x)));
+            playerY = camera.position.y;
+            playerZ = redBox.max.z + (ratioX * (Math.abs(redBox.max.x - redBox.min.x))) / Math.cos((5*Math.PI / 6));
+            
+            console.log(playerZ);
+            var vector = new THREE.Vector3();
+            playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
+            playerCollider.end.set(playerX, playerY, playerZ);
+            playerCollider.radius = playerRadius;
+            camera.position.copy(playerCollider.end);
+            camera.rotation.set(0,-5 * Math.PI / 12,0);
+            camera.getWorldDirection(vector);
+            console.log(vector);
+            playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.z, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
+        }
+    }
+}
+
+/* TELEPORTS PLAYER WALKING THROUGH RED PORTAL */
+function teleportPlayerIfPortalRed() {
+    let bbox = new THREE.Box3().setFromObject(redPortalFrame);
+    console.log(bbox);
+    // if (camera.position.x <)
+}
+
+// RedPortal
 const redPortal = Geometry.BufferPortal(7, 11, redPortalRenderTarget);
 scene.add(redPortal);
 
@@ -48,7 +292,7 @@ redPortal.rotation.x = redPortalFrame.rotation.x;
 redPortal.rotation.y = redPortalFrame.rotation.y;
 redPortal.rotation.z = redPortalFrame.rotation.z;
 
-//BluePortal
+// BluePortal
 const bluePortal = Geometry.BufferPortal(7, 11, bluePortalRenderTarget);
 scene.add(bluePortal);
 bluePortal.position.set(bluePortalFrame.position.x, bluePortalFrame.position.y, bluePortalFrame.position.z);
@@ -70,46 +314,55 @@ bluePortalCameraHelper.setColors( Colors.blue,  Colors.white,  Colors.white,  Co
 const cameraHelper = new THREE.CameraHelper( camera );
 const lightHelper = new THREE.PointLightHelper(pointLight);
 const gridHelper = new THREE.GridHelper(200, 50);
-scene.add( lightHelper, gridHelper);
-scene.add( cameraHelper );
-scene.add( redPortalCameraHelper );
-scene.add( bluePortalCameraHelper );
+//scene.add( lightHelper, gridHelper);
+//scene.add( cameraHelper );
+//scene.add( redPortalCameraHelper );
+//scene.add( bluePortalCameraHelper );
 
 // DEVELOPER CAMERA
 const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
 topViewCamera.position.set(0, 50, 0);
 topViewCamera.lookAt(0, 0, 0);
 
-
-
-
 function animate() {
-  requestAnimationFrame(animate);
+    let deltaTime = Math.min(0.05, clock.getDelta()) / STEPS_PER_FRAME;
+    for (let i = 0; i < STEPS_PER_FRAME; i++) {
+        updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
+        updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
+        
+        renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera, bluePortalRenderTarget);
+        renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
+        
+        
+        // controls.update();
+        redPortalCameraHelper.update();
+        bluePortalCameraHelper.update();
+        controls(deltaTime);
+        updatePlayer(deltaTime);
+        teleportPlayerIfOutOfBounds();
+        teleportPlayerIfPortalBlue();
+        
+        // Render
+        // renderer.clear();
+        renderer.render(scene, camera);
 
-  updateRelativePositionAndRotation(camera, bluePortal, redPortalCamera, redPortal);
-  updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
+        /*
+         renderer.setViewport(0, 0, 2 * window.innerWidth / 3, window.innerHeight);
+         renderer.render(scene, camera);
+         
+         renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
+         renderer.render(scene, redPortalCamera);
+         
+         renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
+         renderer.render(scene, bluePortalCamera);
+        
+         */
+        
+        
+    }
 
-  renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera, bluePortalRenderTarget);
-  renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
-
-  controls.update();
-  redPortalCameraHelper.update();
-  bluePortalCameraHelper.update();
-
-  // Render
-  renderer.clear()
-
-  renderer.setViewport(0, 0, 2 * window.innerWidth / 3, window.innerHeight);
-  renderer.render(scene, camera);
-
-  renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  renderer.render(scene, redPortalCamera);
-  
-  renderer.setViewport(2 * window.innerWidth / 3, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 2);
-  renderer.render(scene, bluePortalCamera);
-
-  // renderer.setViewport(2 * window.innerWidth / 3, 0, window.innerWidth / 3, window.innerHeight / 2);
-  // renderer.render(scene, topViewCamera);
+    stats.update();
+    requestAnimationFrame(animate);
 }
 
 animate();
@@ -125,7 +378,7 @@ function init() {
 
 function setupScene() {
   // Objects
-  // scene.add(floor);
+  scene.add(floor);
   floor.position.set(0, -0.5, 0);
 
   scene.add(box);
@@ -270,6 +523,6 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   //console.log(newuvs);
   //Information on uv-mapping
   //https://discourse.threejs.org/t/custom-uv-mapping/38677
-  lookatPortal.geometry.setAttribute( 'uv', new THREE.BufferAttribute(newuvs, 2));
+  // lookatPortal.geometry.setAttribute( 'uv', new THREE.BufferAttribute(newuvs, 2));
   
 }
