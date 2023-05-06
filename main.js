@@ -229,9 +229,14 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   let screenV4 = getScreenSpace(v4, otherCamera);
 
 
-  console.log(screenV1, screenV2, screenV3, screenV4);
+  //Create Clipping Plane
+  const otherNormal = new THREE.Vector3( 0, 0, 1 );
+  otherNormal.applyQuaternion(otherPortal.quaternion);
+  otherNormal.normalize();
 
-  //console.log(screenV1);
+  const clippingPlane = new THREE.Plane(otherNormal);
+  clippingPlane.translate(otherPortal.position);
+  renderer.clippingPlanes = [clippingPlane];
 
   renderTarget.texture.encoding = renderer.outputEncoding;
 
@@ -248,13 +253,12 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   renderer.render(scene, otherCamera);
   renderer.setRenderTarget(null);
 
-  
-
   lookatPortal.material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
 
   //Make portal visible again
   otherPortalFrame.visible = true;
   otherPortal.visible = true;
+  renderer.clippingPlanes = [];
 
   const newuvs = new Float32Array([
     screenV1.x, screenV1.y,
