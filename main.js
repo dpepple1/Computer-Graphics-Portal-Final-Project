@@ -92,7 +92,7 @@ function animate() {
   updateRelativePositionAndRotation(camera, redPortal, bluePortalCamera, bluePortal);
 
   renderPortal(bluePortal, redPortal, redPortalFrame, redPortalCamera, bluePortalRenderTarget);
-  //renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
+  renderPortal(redPortal, bluePortal, bluePortalFrame, bluePortalCamera, redPortalRenderTarget);
 
   controls.update();
   redPortalCameraHelper.update();
@@ -231,7 +231,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   let screenV4 = getScreenSpace(v4, otherCamera);
 
 
-  //console.log(screenV1, screenV2, screenV3, screenV4);
+  console.log(screenV1, screenV2, screenV3, screenV4);
 
   //console.log(screenV1);
 
@@ -242,7 +242,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   otherPortalFrame.visible = false;
 
   //temporarily replace material
-  //lookatPortal.material = new THREE.MeshBasicMaterial({color: 0xFFFFFFFF});
+  lookatPortal.material = new THREE.MeshBasicMaterial({color: 0xFFFFFFFF});
 
   //render to texture
   renderer.setRenderTarget(renderTarget);
@@ -252,7 +252,7 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
 
   
 
-  //lookatPortal.material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
+  lookatPortal.material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
 
   //Make portal visible again
   otherPortalFrame.visible = true;
@@ -261,8 +261,8 @@ function renderPortal(lookatPortal, otherPortal, otherPortalFrame, otherCamera, 
   const newuvs = new Float32Array([
     screenV1.x, screenV1.y,
     screenV2.x, screenV2.y, 
-    screenV4.x, screenV4.y, 
-    screenV3.x, screenV3.y,
+    screenV3.x, screenV3.y, 
+    screenV4.x, screenV4.y,
   ]);
 
   //console.log(newuvs);
