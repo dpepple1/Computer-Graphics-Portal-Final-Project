@@ -30,9 +30,9 @@ export function PortalFrame(color) {
   const geometry2 = new THREE.BoxGeometry(7, 1, 1);
   const geometry3 = new THREE.BoxGeometry(1, 12, 1);
 
-  geometry1.translate(4, 6, 0);
-  geometry2.translate(0, 11.5, 0);
-  geometry3.translate(-4, 6, 0);
+  geometry1.translate(4, 0.5, 0);
+  geometry2.translate(0, 6, 0);
+  geometry3.translate(-4, 0.5, 0);
 
 
   const mergedGeometry = BufferGeometryUtils.mergeGeometries([geometry1, geometry2, geometry3]);
@@ -41,4 +41,45 @@ export function PortalFrame(color) {
   const mesh = new THREE.Mesh(mergedGeometry, material);
 
   return mesh;
+}
+
+export function BufferPortal(width, height, renderTarget){
+  const geometry = new THREE.BufferGeometry();
+  //const material = new THREE.MeshBasicMaterial( { map: renderTarget.texture} );
+  const material = new THREE.MeshBasicMaterial({map: renderTarget.texture});
+  let x = width / 2;
+  let y = height / 2;
+
+  //top left > top right > bottom right > bottom left
+  const vertices  = new Float32Array([
+    -x, y, 0,
+    x, y, 0,
+    x, -y, 0,
+    -x, -y, 0,
+  ]);
+
+  const indices =[
+    0, 1, 2,
+    2, 3, 0,
+  ];
+
+  const uvs = new Float32Array([
+    0, 1, 
+    1, 1, 
+    1, 0, 
+    0, 0,
+  ]);
+
+  geometry.setIndex(indices);
+  geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+  geometry.setAttribute( 'uv', new THREE.BufferAttribute(uvs, 2));
+
+  const mesh = new THREE.Mesh( geometry, material );
+  return mesh;
+
+
+  //const bluePortalGeometry = new THREE.PlaneGeometry(7, 11);
+  //const bluePortalMaterial = new THREE.MeshBasicMaterial({ map: renderTarget.texture });
+  //const bluePortal = new THREE.Mesh(bluePortalGeometry, bluePortalMaterial);
+  //return bluePortal;
 }
