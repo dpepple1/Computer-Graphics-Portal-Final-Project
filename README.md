@@ -1,5 +1,7 @@
 # Computer-Graphics-Portal-Final-Project
 
+# Node Package Manager (npm) required
+
 # Setup project and install dependencies
 npm install
 
