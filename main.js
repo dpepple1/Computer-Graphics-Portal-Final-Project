@@ -80,8 +80,6 @@ const topViewCamera = new THREE.OrthographicCamera(-30, 30, 30, -30, );
 topViewCamera.position.set(0, 50, 0);
 topViewCamera.lookAt(0, 0, 0);
 
-const texture = new THREE.TextureLoader().load( 'grid.png' );
-bluePortal.material = new THREE.MeshBasicMaterial({map: texture});
 
 
 
