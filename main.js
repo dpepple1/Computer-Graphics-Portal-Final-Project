@@ -30,8 +30,8 @@ const clock = new THREE.Clock();
 
 /* SCENE SETUP */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x88ccee);
-scene.fog = new THREE.Fog(0x88ccee, 0, 200);
+scene.background = new THREE.Color(0x88ccdd);
+scene.fog = new THREE.Fog(0x88ccee, 0, 500);
 
 /* CONTAINER */
 const container = document.getElementById('container');
@@ -41,7 +41,7 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 camera.rotation.order = 'YXZ';
 
 /* LIGHTING */
-const hemiLight = new THREE.HemisphereLight(0x4488bb, 0x002244, 0.5);
+const hemiLight = new THREE.HemisphereLight(0x4477bb, 0x002244, 0.5);
 hemiLight.position.set(2, 1, 1);
 scene.add(hemiLight);
 
@@ -50,15 +50,15 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 directionalLight.position.set(- 5, 25, - 1);
 directionalLight.castShadow = true;
 directionalLight.shadow.camera.near = 0.01;
-directionalLight.shadow.camera.far = 1000;
+directionalLight.shadow.camera.far = 400;
 directionalLight.shadow.camera.right = 30;
 directionalLight.shadow.camera.left = - 30;
 directionalLight.shadow.camera.top = 30;
 directionalLight.shadow.camera.bottom = - 30;
 directionalLight.shadow.mapSize.width = 1024;
 directionalLight.shadow.mapSize.height = 1024;
-directionalLight.shadow.radius = 4;
-directionalLight.shadow.bias = - 0.00006;
+directionalLight.shadow.radius = 5;
+directionalLight.shadow.bias = -0.00005;
 scene.add(directionalLight);
 
 /* INITIALIZES RENDERER SETTINGS */
@@ -428,21 +428,23 @@ function teleportPlayerIfPortalBlue() {
     // let bbox = new THREE.Box3().setFromObject(bluePortalFrame);
     if (camera.position.x < blueBox.max.x && camera.position.x > blueBox.min.x) {
         if (camera.position.z < blueBox.max.z && camera.position.z > blueBox.min.z) {
-            let ratioX = (camera.position.x - blueBox.min.x) / (blueBox.max.x - blueBox.min.x);
-            
-            // Calculate new relative position
-            playerX = redBox.max.x - (ratioX * (Math.abs(redBox.max.x - redBox.min.x)));
-            playerY = camera.position.y;
-            playerZ = redBox.max.z + (ratioX * (Math.abs(redBox.max.x - redBox.min.x))) / Math.cos((5*Math.PI / 6));
-            
-            // Places player in new location
-            playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
-            playerCollider.end.set(playerX, playerY, playerZ);
-            playerCollider.radius = playerRadius;
-            camera.position.copy(playerCollider.end);
-            camera.rotation.set(camera.rotation.x, camera.rotation.y- (5*Math.PI/12),camera.rotation.z);
-            playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.x, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
-            activePortal = 1;
+            if (camera.position.y < blueBox.max.y && camera.position.y > blueBox.min.y) {
+                let ratioX = (camera.position.x - blueBox.min.x) / (blueBox.max.x - blueBox.min.x);
+                
+                // Calculate new relative position
+                playerX = redBox.max.x - (ratioX * (Math.abs(redBox.max.x - redBox.min.x)));
+                playerY = camera.position.y;
+                playerZ = redBox.max.z + (ratioX * (Math.abs(redBox.max.x - redBox.min.x))) / Math.cos((5*Math.PI / 6));
+                
+                // Places player in new location
+                playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
+                playerCollider.end.set(playerX, playerY, playerZ);
+                playerCollider.radius = playerRadius;
+                camera.position.copy(playerCollider.end);
+                camera.rotation.set(camera.rotation.x, camera.rotation.y- (5*Math.PI/12),camera.rotation.z);
+                playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.x, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
+                activePortal = 1;
+            }
         }
     }
 }
@@ -451,21 +453,23 @@ function teleportPlayerIfPortalBlue() {
 function teleportPlayerIfPortalRed() {
     if (camera.position.x < redBox.max.x && camera.position.x > redBox.min.x) {
         if (camera.position.z < redBox.max.z && camera.position.z > redBox.min.z) {
-            let ratioX = (camera.position.x - redBox.min.x) / (redBox.max.x - redBox.min.x);
-
-            // Calculate new relative position
-            playerX = blueBox.max.x - (ratioX * (Math.abs(blueBox.max.x - blueBox.min.x)));
-            playerY = camera.position.y;
-            playerZ = blueBox.max.z -  (ratioX * (Math.abs(blueBox.max.x - blueBox.min.x))) / Math.cos((5*Math.PI / 6));
-            
-            // Places player into new location
-            playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
-            playerCollider.end.set(playerX, playerY, playerZ);
-            playerCollider.radius = playerRadius;
-            camera.position.copy(playerCollider.end);
-            camera.rotation.set(camera.rotation.x, camera.rotation.y+ (5*Math.PI/12),camera.rotation.z);
-            playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.x, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
-            activePortal = 2;
+            if (camera.position.y < redBox.max.y && camera.position.y > redBox.min.y) {
+                let ratioX = (camera.position.x - redBox.min.x) / (redBox.max.x - redBox.min.x);
+                
+                // Calculate new relative position
+                playerX = blueBox.max.x - (ratioX * (Math.abs(blueBox.max.x - blueBox.min.x)));
+                playerY = camera.position.y;
+                playerZ = blueBox.max.z -  (ratioX * (Math.abs(blueBox.max.x - blueBox.min.x))) / Math.cos((5*Math.PI / 6));
+                
+                // Places player into new location
+                playerCollider.start.set(playerX, playerY - playerHeight, playerZ);
+                playerCollider.end.set(playerX, playerY, playerZ);
+                playerCollider.radius = playerRadius;
+                camera.position.copy(playerCollider.end);
+                camera.rotation.set(camera.rotation.x, camera.rotation.y+ (5*Math.PI/12),camera.rotation.z);
+                playerVelocity.set(-Math.cos(Math.PI/12) * playerVelocity.x, playerVelocity.y, -Math.cos(5*Math.PI/12) * playerVelocity.z);
+                activePortal = 2;
+            }
         }
     }
 }
